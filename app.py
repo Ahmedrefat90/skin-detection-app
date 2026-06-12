@@ -43,7 +43,8 @@ def load_model_from_drive():
                     if chunk:
                         f.write(chunk)
                         
-    return tf.keras.models.load_model(MODEL_PATH)
+    # الحل السحري لتخطي مشكلة batch_shape بالتوافق مع النسخ الجديدة
+    return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 
 # استدعاء الموديل
@@ -51,7 +52,6 @@ try:
     model = load_model_from_drive()
 except Exception as e:
     st.error("حدث خطأ في الاتصال بالسيرفر، يرجى التأكد من صلاحيات رابط الـ Google Drive.")
-    # السطر السحري اللي هيظهر لنا المشكلة الحقيقية تحت الرسالة الحمرا
     st.exception(e)
 
 # الكلاسات المعتمدة بالترتيب الأبجدي الصحيح
