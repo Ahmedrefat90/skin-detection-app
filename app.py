@@ -20,12 +20,29 @@ DRIVE_FILE_ID = '1XPaPIYtPcwwvv7C03GM3duqEwQOHHkZp'
 def load_model_from_drive():
     if not os.path.exists(MODEL_PATH):
         with st.spinner('🔄 جاري تحميل ملف الموديل الذكي لأول مرة من السيرفر الآمن... برجاء الانتظار ثواني'):
-            url = f'https://docs.google.com/uc?export=download&id={DRIVE_FILE_ID}'
-            response = requests.get(url, stream=True)
+            url = "https://docs.google.com/uc?export=download"
+            
+            # فتح جلسة للحفاظ على الكوكيز وتخطي حماية الملفات الكبيرة
+            session = requests.Session()
+            response = session.get(url, params={'id': DRIVE_FILE_ID}, stream=True)
+            
+            # البحث عن توكن التأكيد لتخطي التحذير
+            token = None
+            for key, value in response.cookies.items():
+                if key.startswith('download_warning'):
+                    token = value
+                    break
+
+            # إذا وجدنا التحذير، نرسل طلب التأكيد تلقائياً
+            if token:
+                response = session.get(url, params={'id': DRIVE_FILE_ID, 'confirm': token}, stream=True)
+            
+            # كتابة ملف الموديل الحقيقي
             with open(MODEL_PATH, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=32768):
                     if chunk:
                         f.write(chunk)
+                        
     return tf.keras.models.load_model(MODEL_PATH)
 
 
