@@ -51,6 +51,8 @@ try:
     model = load_model_from_drive()
 except Exception as e:
     st.error("حدث خطأ في الاتصال بالسيرفر، يرجى التأكد من صلاحيات رابط الـ Google Drive.")
+    # السطر السحري اللي هيظهر لنا المشكلة الحقيقية تحت الرسالة الحمرا
+    st.exception(e)
 
 # الكلاسات المعتمدة بالترتيب الأبجدي الصحيح
 CLASS_NAMES = ['actinic_keratosis', 'basal_cell_carcinoma', 'eczema', 'melanocytic_nevus', 'melanoma',
