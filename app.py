@@ -18,7 +18,7 @@ DRIVE_FILE_ID = '1XPaPIYtPcwwvv7C03GM3duqEwQOHHkZp'
 @st.cache_resource
 def load_model_from_drive():
     if not os.path.exists(MODEL_PATH):
-        with st.spinner('🔄 جاري تحميل ملف الموديل الذكي لأول مرة من السيرفر الآمن...'):
+        with st.spinner('🔄 جاري تحميل ملف الموديل الذكي لأول مرة... برجاء الانتظار ثواني'):
             url = "https://docs.google.com/uc?export=download"
             session = requests.Session()
             response = session.get(url, params={'id': DRIVE_FILE_ID}, stream=True)
@@ -33,21 +33,12 @@ def load_model_from_drive():
                 response = session.get(url, params={'id': DRIVE_FILE_ID, 'confirm': token}, stream=True)
             
             with open(MODEL_PATH, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=32768):
+                for chunk in response.iter_content(chunk_size=65536):  # سرعنا التحميل هنا
                     if chunk:
                         f.write(chunk)
                         
-    # محاولة التحميل المرن لتفادي مشكلة batch_shape في النسخ الجديدة
-    try:
-        return tf.keras.models.load_model(MODEL_PATH, compile=False)
-    except Exception:
-        # إذا فشل بسبب اختلاف إصدارات Keras، نقوم ببناء الهيكل وتحميل الأوزان مباشرة
-        base_model = tf.keras.applications.MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights=None)
-        x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
-        output = tf.keras.layers.Dense(8, activation='softmax')(x)
-        built_model = tf.keras.models.Model(inputs=base_model.input, outputs=output)
-        built_model.load_weights(MODEL_PATH, by_name=True, skip_mismatch=True)
-        return built_model
+    # التحميل المباشر الآمن
+    return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 # استدعاء الموديل
 try:
