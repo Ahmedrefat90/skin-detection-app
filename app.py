@@ -96,7 +96,7 @@ CLASS_LABELS = {
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2869/2869819.png", width=100)
     st.title("Control Panel")
-    st.info("Biomedical Engineering Graduation Artifact Model v2.4")
+    st.info("Biomedical Engineering Graduation Artifact Model v2.5")
     
     if st.button("🔄 Clear & Reset Camera", use_container_width=True):
         reset_app()
@@ -128,13 +128,16 @@ if uploaded_file is not None:
             img_rescaled = img_array / 255.0
             img_expand = np.expand_dims(img_rescaled, axis=0)
 
-            # --- EXPERT FILTER: TEXTURE & NON-SKIN DETECTION ---
+            # --- REVISED REASONABLE ANTI-GRAPHIC FILTER ---
             img_gray = np.mean(img_array, axis=2)
             texture_variance = np.var(img_gray)
             
-            # Detect pure computer graphics white background (extremely clean pixels)
-            pure_white_mask = (img_rescaled[:,:,0] > 0.98) & (img_rescaled[:,:,1] > 0.98) & (img_rescaled[:,:,2] > 0.98)
+            # Pure computer white needs to be absolute (1.0) and covering an immense part of the image (like vector background)
+            pure_white_mask = (img_rescaled[:,:,0] >= 0.99) & (img_rescaled[:,:,1] >= 0.99) & (img_rescaled[:,:,2] >= 0.99)
             pure_white_ratio = np.sum(pure_white_mask) / (224 * 224)
+            
+            # Check for pure absolute flat color (0 variance) like artificial grey/black screens
+            is_completely_flat = texture_variance < 100
 
             # Prediction
             predictions = model.predict(img_expand)
@@ -143,14 +146,13 @@ if uploaded_file is not None:
             confidence = predictions[0][best_class_idx] * 100
 
         # Diagnosis Display Logic
-        # 1. texture_variance < 400 catches ultra-flat backgrounds (like the grey/black test photos)
-        # 2. pure_white_ratio > 0.25 catches graphics with massive artificial white blocks (like the hospital cartoon)
-        if texture_variance < 400 or pure_white_ratio > 0.25:
+        # Now calibrated so real micro-skin photos with soft lighting or flash flash never trigger invalid detection.
+        if is_completely_flat or pure_white_ratio > 0.45:
             st.markdown("""
                 <div class='warning-card'>
                     <h3 style='color: #ef4444; margin:0;'>Invalid Sample Detected</h3>
                     <p style='font-size: 16px; color: #374151; margin-top:10px;'>
-                        <strong>Safety Protocol Activated:</strong> The system identified this image as a non-clinical graphic, synthetic pattern, or uniform textile texture. 
+                        <strong>Safety Protocol Activated:</strong> The system identified this image as a non-clinical graphic or artificial flat background. 
                         <br><br>
                         Please provide a real macro photograph focused directly on the skin pathology.
                     </p>
