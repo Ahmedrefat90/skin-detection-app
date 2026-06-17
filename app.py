@@ -140,14 +140,30 @@ if uploaded_file is not None:
             img_rescaled = img_array / 255.0
             img_expand = np.expand_dims(img_rescaled, axis=0)
 
+            # [Advanced Safety Filter] Calculate image texture variance to detect non-skin/clipart/flat graphics
+            # Skin images have high variance across channels due to tissue texture.
+            # Flat graphics/cartoons have massive blocks of identical pixels.
+            img_gray = np.mean(img_array, axis=2)
+            texture_variance = np.var(img_gray)
+            
             # Prediction
             predictions = model.predict(img_expand)
             best_class_idx = np.argmax(predictions[0])
             predicted_class = CLASS_NAMES[best_class_idx]
             confidence = predictions[0][best_class_idx] * 100
 
-        # Diagnosis Display Logic (70% Filter)
-        if confidence >= 70.0:
+        # Diagnosis Display Logic (70% Filter + Graphics Detection)
+        # Cartoons/Flat clips usually have variance lower than 800 or extremely uniform textures
+        if texture_variance < 600:
+            st.markdown("""
+                <div class='warning-card'>
+                    <h3 style='color: #ef4444; margin:0;'>Invalid Sample Detected</h3>
+                    <p style='font-size: 16px; color: #374151; margin-top:10px;'>
+                        The system detected that this file is a graphic illustration, clipart, or artificial background. Please upload an authentic medical clinical photograph of skin tissue.
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+        elif confidence >= 70.0:
             st.markdown(f"""
                 <div class='result-card'>
                     <h3 style='color: #10b981; margin:0;'>Confirmed Diagnosis</h3>
@@ -156,7 +172,7 @@ if uploaded_file is not None:
             """, unsafe_allow_html=True)
             st.metric(label="System Confidence", value=f"{confidence:.2f}%")
         else:
-            st.markdown(f"""
+            st.markdown("""
                 <div class='warning-card'>
                     <h3 style='color: #ef4444; margin:0;'>Low Confidence Alert</h3>
                     <p style='font-size: 16px; color: #374151; margin-top:10px;'>
