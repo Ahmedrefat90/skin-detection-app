@@ -33,11 +33,10 @@ def load_model_from_drive():
                 response = session.get(url, params={'id': DRIVE_FILE_ID, 'confirm': token}, stream=True)
             
             with open(MODEL_PATH, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=65536):  # سرعنا التحميل هنا
+                for chunk in response.iter_content(chunk_size=65536):
                     if chunk:
                         f.write(chunk)
                         
-    # التحميل المباشر الآمن
     return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 # استدعاء الموديل
@@ -81,5 +80,10 @@ if uploaded_file is not None:
         predicted_class = CLASS_NAMES[best_class_idx]
         confidence = predictions[0][best_class_idx] * 100
 
-    st.success(f"### 🎯 التشخيص المتوقع: {CLASS_ARABIC[predicted_class]}")
-    st.info(f"##### 📊 نسبة دقة التشخيص (Confidence): {confidence:.2f}%")
+    # الفلتر الذكي: التحقق من نسبة ثقة الموديل في الصورة
+    if confidence >= 70.0:
+        st.success(f"### 🎯 التشخيص المتوقع: {CLASS_ARABIC[predicted_class]}")
+        st.info(f"##### 📊 نسبة دقة التشخيص (Confidence): {confidence:.2f}%")
+    else:
+        st.warning("### ⚠️ تحذير: لم يتم التعرف على ملامح مرض جلدي واضحة!")
+        st.error("يبدو أن الصورة المرفوعة لا تحتوي على عينة إصابة جلدية مدعومة، أو أن جودة الإضاءة غير كافية للتحليل الطبي. يرجى إعادة التقاط الصورة بوضوح للجلد المصاب فقط.")
