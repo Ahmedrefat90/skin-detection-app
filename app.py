@@ -4,6 +4,7 @@ from PIL import Image, ImageOps
 import numpy as np
 import os
 import requests
+import cv2
 
 # 1. Page Configuration
 st.set_page_config(
@@ -74,7 +75,7 @@ CLASS_NAMES = ['actinic_keratosis', 'basal_cell_carcinoma', 'eczema', 'melanocyt
                'seborrheic_keratosis', 'vascular', 'vitiligo']
 
 CLASS_LABELS = {
-    'actinic_keratosis': 'Actinic Keratosis (AK) / التَّقَرُّن الإشعاعي',
+    'actinic_keratosis': 'Actinic Keratosis (AK) / التَّقَرُّن الإشعاعي',
     'basal_cell_carcinoma': 'Basal Cell Carcinoma (BCC) / سرطان الخلايا البازالية',
     'eczema': 'Eczema / الإكزيما',
     'melanocytic_nevus': 'Melanocytic Nevus / الوحمة الميلانينية',
@@ -105,28 +106,39 @@ if model_loaded:
                 img_rescaled = img_array / 255.0
                 img_expand = np.expand_dims(img_rescaled, axis=0)
 
-                # Graphics Filter Parameters
+                # 1. Texture Variance Calculation
                 img_gray = np.mean(img_array, axis=2)
                 texture_variance = np.var(img_gray)
 
-                # Predict
+                # 2. HSV Skin Pixel Ratio Calculation
+                img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2HSV)
+                lower_skin = np.array([0, 20, 70], dtype=np.uint8)
+                upper_skin = np.array([25, 255, 255], dtype=np.uint8)
+                skin_mask = cv2.inRange(img_cv, lower_skin, upper_skin)
+                skin_pixels = np.sum(skin_mask == 255)
+                total_pixels = img_array.shape[0] * img_array.shape[1]
+                skin_ratio = skin_pixels / total_pixels
+
+                # Predict Model Output
                 predictions = model.predict(img_expand)
                 best_class_idx = np.argmax(predictions[0])
                 predicted_class = CLASS_NAMES[best_class_idx]
                 confidence = predictions[0][best_class_idx] * 100
 
-            # 🛑 1. Flat Graphic Protection Check First
-            if texture_variance < 35.0:
+            # 🛑 التعديل الذكي: التحقق من فلاتر الأمان مدمجة ومحسنة هندسياً
+            # جعلنا عتبة النسيج 15.0 بدلاً من 35.0، ونسبة الجلد البشري يجب أن لا تقل عن 12% لرفض الورق الأبيض تماماً
+            if texture_variance < 15.0 or skin_ratio < 0.12:
                 st.markdown("""
                     <div class='warning-card'>
                         <h3 style='color: #ef4444; margin:0;'>Invalid Sample Detected</h3>
                         <p style='font-size: 14px; color: #374151; margin-top:8px;'>
-                            The system detected that this file is a graphic illustration or artificial flat background. Please upload an authentic medical photograph.
+                            The system detected that this file lacks clinical skin biomarkers or is an artificial flat surface. Please upload an authentic dermatological medical photograph.
                         </p>
                     </div>
                 """, unsafe_allow_html=True)
+                st.caption(f"Diagnostics metrics debug -> Texture Var: {texture_variance:.2f} | Skin Ratio: {skin_ratio*100:.1f}%")
             
-            # ✅ 2. Diagnosis Logic (Optimised threshold to 50% for complex clinical cases like BCC)
+            # ✅ 2. Diagnosis Logic
             elif confidence >= 50.0:
                 st.markdown(f"""
                     <div class='result-card'>
